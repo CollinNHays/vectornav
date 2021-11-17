@@ -42,7 +42,7 @@
 #include <vectornav/Ins.h>
 
 
-ros::Publisher pubIMU, pubMag, pubGPS, pubOdom, pubTemp, pubPres, pubIns;
+ros::Publisher pubIMU, pubUncompIMU, pubMag, pubGPS, pubOdom, pubTemp, pubPres, pubIns;
 ros::ServiceServer resetOdomSrv;
 
 XmlRpc::XmlRpcValue rpc_temp;
@@ -117,6 +117,7 @@ int main(int argc, char *argv[])
     ros::NodeHandle pn("~");
 
     pubIMU = n.advertise<sensor_msgs::Imu>("vectornav/IMU", 1000);
+    pubUncompIMU = n.advertise<sensor_msgs::Imu>("vectornav/UncompIMU", 1000);
     pubMag = n.advertise<sensor_msgs::MagneticField>("vectornav/Mag", 1000);
     pubGPS = n.advertise<sensor_msgs::NavSatFix>("vectornav/GPS", 1000);
     pubOdom = n.advertise<nav_msgs::Odometry>("vectornav/Odom", 1000);
@@ -250,7 +251,8 @@ int main(int argc, char *argv[])
             | TIMEGROUP_GPSTOW
             | TIMEGROUP_GPSWEEK
             | TIMEGROUP_TIMEUTC,
-            IMUGROUP_NONE,
+            IMUGROUP_UNCOMPACCEL
+            | IMUGROUP_UNCOMPGYRO,
             GPSGROUP_NONE,
             ATTITUDEGROUP_YPRU, //<-- returning yaw pitch roll uncertainties
             INSGROUP_INSSTATUS
@@ -378,6 +380,102 @@ void fill_imu_message(
         // Covariances pulled from parameters
         msgIMU.angular_velocity_covariance = user_data->angular_vel_covariance;
         msgIMU.linear_acceleration_covariance = user_data->linear_accel_covariance;
+    }
+}
+
+//Helper function to create IMU message
+void fill_uncomp_imu_message(
+    sensor_msgs::Imu &msgUncompIMU, vn::sensors::CompositeData &cd, ros::Time &time, UserData *user_data)
+{
+    msgUncompIMU.header.stamp = time;
+    msgUncompIMU.header.frame_id = user_data->frame_id;
+
+    if (cd.hasQuaternion() && cd.hasAngularRateUncompensated() && cd.hasAccelerationUncompensated())
+    {
+
+        vec4f q = cd.quaternion();
+        vec3f ar = cd.angularRateUncompensated();
+        vec3f al = cd.accelerationUncompensated();
+
+        if (cd.hasAttitudeUncertainty())
+        {
+            vec3f orientationStdDev = cd.attitudeUncertainty();
+            msgUncompIMU.orientation_covariance[0] = pow(orientationStdDev[2]*M_PI/180, 2); // Convert to radians Roll
+            msgUncompIMU.orientation_covariance[4] = pow(orientationStdDev[1]*M_PI/180, 2); // Convert to radians Pitch
+            msgUncompIMU.orientation_covariance[8] = pow(orientationStdDev[0]*M_PI/180, 2); // Convert to radians Yaw
+        }
+
+        //Quaternion message comes in as a Yaw (z) pitch (y) Roll (x) format
+        if (user_data->tf_ned_to_enu)
+        {
+            // If we want the orientation to be based on the reference label on the imu
+            tf2::Quaternion tf2_quat(q[0],q[1],q[2],q[3]);
+            geometry_msgs::Quaternion quat_msg;
+
+            if(user_data->frame_based_enu)
+            {
+                // Create a rotation from NED -> ENU
+                tf2::Quaternion q_rotate;
+                q_rotate.setRPY (M_PI, 0.0, M_PI/2);
+                // Apply the NED to ENU rotation such that the coordinate frame matches
+                tf2_quat = q_rotate*tf2_quat;
+                quat_msg = tf2::toMsg(tf2_quat);
+
+                // Since everything is in the normal frame, no flipping required
+                msgUncompIMU.angular_velocity.x = ar[0];
+                msgUncompIMU.angular_velocity.y = ar[1];
+                msgUncompIMU.angular_velocity.z = ar[2];
+
+                msgUncompIMU.linear_acceleration.x = al[0];
+                msgUncompIMU.linear_acceleration.y = al[1];
+                msgUncompIMU.linear_acceleration.z = al[2];
+            }
+            else
+            {
+                // put into ENU - swap X/Y, invert Z
+                quat_msg.x = q[1];
+                quat_msg.y = q[0];
+                quat_msg.z = -q[2];
+                quat_msg.w = q[3];
+
+                // Flip x and y then invert z
+                msgUncompIMU.angular_velocity.x = ar[1];
+                msgUncompIMU.angular_velocity.y = ar[0];
+                msgUncompIMU.angular_velocity.z = -ar[2];
+                // Flip x and y then invert z
+                msgUncompIMU.linear_acceleration.x = al[1];
+                msgUncompIMU.linear_acceleration.y = al[0];
+                msgUncompIMU.linear_acceleration.z = -al[2];
+
+                if (cd.hasAttitudeUncertainty())
+                {
+                    vec3f orientationStdDev = cd.attitudeUncertainty();
+                    msgUncompIMU.orientation_covariance[0] = pow(orientationStdDev[1]*M_PI/180, 2); // Convert to radians pitch
+                    msgUncompIMU.orientation_covariance[4] = pow(orientationStdDev[0]*M_PI/180, 2); // Convert to radians Roll
+                    msgUncompIMU.orientation_covariance[8] = pow(orientationStdDev[2]*M_PI/180, 2); // Convert to radians Yaw
+                }
+            }
+
+        msgUncompIMU.orientation = quat_msg;
+        }
+        else
+        {
+            msgUncompIMU.orientation.x = q[0];
+            msgUncompIMU.orientation.y = q[1];
+            msgUncompIMU.orientation.z = q[2];
+
+            msgUncompIMU.orientation.w = q[3];
+
+            msgUncompIMU.angular_velocity.x = ar[0];
+            msgUncompIMU.angular_velocity.y = ar[1];
+            msgUncompIMU.angular_velocity.z = ar[2];
+            msgUncompIMU.linear_acceleration.x = al[0];
+            msgUncompIMU.linear_acceleration.y = al[1];
+            msgUncompIMU.linear_acceleration.z = al[2];
+        }
+        // Covariances pulled from parameters
+        msgUncompIMU.angular_velocity_covariance = user_data->angular_vel_covariance;
+        msgUncompIMU.linear_acceleration_covariance = user_data->linear_accel_covariance;
     }
 }
 
@@ -695,6 +793,14 @@ void BinaryAsyncMessageReceived(void* userData, Packet& p, size_t index)
         sensor_msgs::Imu msgIMU;
         fill_imu_message(msgIMU, cd, time, user_data);
         pubIMU.publish(msgIMU);
+    }
+    
+    // UncompIMU
+    if (pubUncompIMU.getNumSubscribers() > 0)
+    {
+        sensor_msgs::Imu msgUncompIMU;
+        fill_uncomp_imu_message(msgUncompIMU, cd, time, user_data);
+        pubUncompIMU.publish(msgUncompIMU);
     }
 
     // Magnetic Field
