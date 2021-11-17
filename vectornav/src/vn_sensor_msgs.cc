@@ -29,6 +29,8 @@
 #include "vectornav_msgs/msg/ins_group.hpp"
 #include "vectornav_msgs/msg/time_group.hpp"
 
+#include "swiftnav/coord_system.h"
+
 using namespace std::chrono_literals;
 
 class VnSensorMsgs : public rclcpp::Node {
@@ -258,6 +260,18 @@ private:
       msg.position_covariance_type = sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_DIAGONAL_KNOWN;
 
       pub_gnss_->publish(msg);
+      
+      const double lla_datum[3] = {0.523301476, -1.491863724, 0};//Radians version of 29.982966 -85.477495 at sealevel
+      double ecef_datum[3];
+      wgsllh2ecef(lla_datum, ecef_datum);// Convert datum from radians lla to ecef
+      
+      //double lla_pose[3] = {msg_in->position.x * 0.017453293, msg_in->position.y * 0.017453293, msg_in->position.z};// Pose converted to Radians LLA
+      //double ecef_pose[3];
+      //wgsllh2ecef(lla_pose, ecef_pose);// Convert pose from radians lla to ecef
+      
+      //double ned_pose[3];
+      //wgsecef2ned_d(ecef_pose, ecef_datum, ned_pose);
+      
     }
 
     // Velocity
