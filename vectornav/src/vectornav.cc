@@ -37,13 +37,13 @@ public:
     // TODO(Dereck): Add constraints to parameters
 
     // Device Port
-    auto port = declare_parameter<std::string>("port", "/dev/ttyUSB0");
+    auto port = declare_parameter<std::string>("port", "/dev/serial/by-id/usb-FTDI_USB-RS422_Cable_FT4JCAVE-if00-port0");
 
     // Baud Rate
     // 5.2.6
     // 9600, 19200 38400 57600 115200
     // 128000 230400 460800 921600
-    auto baud = declare_parameter<int>("baud", 115200);
+    auto baud = declare_parameter<int>("baud", 921600);
     auto reconnect_ms = std::chrono::milliseconds(declare_parameter<int>("reconnect_ms", 500));
 
     // Async Output Type (ASCII)

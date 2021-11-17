@@ -28,6 +28,7 @@
 #include "vectornav_msgs/msg/imu_group.hpp"
 #include "vectornav_msgs/msg/ins_group.hpp"
 #include "vectornav_msgs/msg/time_group.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 
 using namespace std::chrono_literals;
 
@@ -73,6 +74,8 @@ public:
         "vectornav/velocity_body", 10);
     pub_pose_ =
         this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("vectornav/pose", 10);
+    pub_odom_ =
+        this->create_publisher<nav_msgs::msg::Odometry>("vectornav/odom", 10);
 
     //
     // Subscribers
@@ -267,16 +270,22 @@ private:
       msg.twist.twist.linear = ins_velbody_;
       msg.twist.twist.angular = msg_in->angularrate;
 
-      /// TODO(Dereck): Velocity Covariance
+      msg.twist.covariance[0] = -1.0;
+      msg.twist.covariance[7] = -1.0;
 
-      pub_velocity_->publish(msg);
+      /// TODO(Dereck): Velocity Covariance
+      if(msg_in->insstatus.mode == 2)
+	{
+		pub_velocity_->publish(msg);
+	}
+      
     }
 
     // Pose (ECEF)
     {
       geometry_msgs::msg::PoseWithCovarianceStamped msg;
       msg.header = msg_in->header;
-      msg.header.frame_id = "earth";
+      msg.header.frame_id = "vectornav";
       msg.pose.pose.position = ins_posecef_;
 
       // Converts Quaternion in NED to ECEF
@@ -294,6 +303,31 @@ private:
       /// TODO(Dereck): Pose Covariance
 
       pub_pose_->publish(msg);
+    }
+    // Odometry
+    {
+      nav_msgs::msg::Odometry msg;
+      msg.header = msg_in->header;
+      msg.header.frame_id = "odom";
+
+      msg.child_frame_id = "vectornav";
+      
+      msg.pose.pose.position = ins_posecef_;
+      // Converts Quaternion in NED to ECEF
+      tf2::Quaternion q, q_enu2ecef, q_ned2enu;
+      q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);
+      auto latitude = deg2rad(msg_in->position.x);
+      auto longitude = deg2rad(msg_in->position.y);
+      q_enu2ecef.setRPY(0.0, latitude, longitude);
+      fromMsg(msg_in->quaternion, q);
+      msg.pose.pose.orientation = toMsg(q_ned2enu * q_enu2ecef * q);
+      /// TODO(Dereck): Pose Covariance
+
+      msg.twist.twist.linear = ins_velbody_;
+      msg.twist.twist.angular = msg_in->angularrate;
+      /// TODO(Dereck): Velocity Covariance
+      msg.pose.covariance[35] = -1.0;
+      pub_odom_->publish(msg);
     }
   }
 
@@ -390,6 +424,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::FluidPressure>::SharedPtr pub_pressure_;
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr pub_velocity_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pub_pose_;
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_odom_;
 
   /// Subscribers
   rclcpp::Subscription<vectornav_msgs::msg::CommonGroup>::SharedPtr sub_vn_common_;

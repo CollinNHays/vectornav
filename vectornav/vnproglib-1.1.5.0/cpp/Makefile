@@ -18,8 +18,6 @@ SOURCES = \
 	src/packetfinder.cpp \
 	src/port.cpp \
 	src/position.cpp \
-	src/rtcmlistener.cpp \
-	src/rtcmmessage.cpp \
 	src/searcher.cpp \
 	src/sensors.cpp \
 	src/serialport.cpp \

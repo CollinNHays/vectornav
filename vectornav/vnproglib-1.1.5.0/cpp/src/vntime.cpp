@@ -6,8 +6,6 @@
 	#include <time.h>
 	#include <sys/time.h>
 #elif __APPLE__
-	#include <time.h>
-	#include <sys/time.h>
 	#include <mach/clock.h>
 	#include <mach/mach.h>
 #else

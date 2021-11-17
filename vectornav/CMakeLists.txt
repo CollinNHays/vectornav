@@ -22,31 +22,27 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(vectornav_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
 # vncxx
-add_subdirectory(vnproglib-1.2.0.0/cpp)
+add_subdirectory(vnproglib-1.1.5.0/cpp)
 
 # vectornav
 add_executable(${PROJECT_NAME} src/vectornav.cc)
-ament_target_dependencies(${PROJECT_NAME} rclcpp geometry_msgs vectornav_msgs)
+ament_target_dependencies(${PROJECT_NAME} rclcpp geometry_msgs nav_msgs vectornav_msgs)
 target_link_libraries(${PROJECT_NAME} vncxx )
 
 # vn_sensor_msgs
 add_executable(vn_sensor_msgs src/vn_sensor_msgs.cc)
-ament_target_dependencies(vn_sensor_msgs rclcpp sensor_msgs vectornav_msgs tf2_geometry_msgs)
+ament_target_dependencies(vn_sensor_msgs rclcpp sensor_msgs nav_msgs vectornav_msgs tf2_geometry_msgs)
 
 # install
 install(TARGETS
   ${PROJECT_NAME}
   vn_sensor_msgs
   DESTINATION lib/${PROJECT_NAME}
-)
-
-install(DIRECTORY
-  config launch
-  DESTINATION share/${PROJECT_NAME}/
 )
 
 if(BUILD_TESTING)

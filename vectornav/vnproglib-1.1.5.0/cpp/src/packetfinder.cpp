@@ -54,13 +54,12 @@ bool operator==(const BinaryTracker& lhs, const BinaryTracker& rhs)
 
 struct PacketFinder::Impl
 {
-	static const size_t DefaultReceiveBufferSize = 1200;
+	static const size_t DefaultReceiveBufferSize = 512;
 	static const uint8_t AsciiStartChar = '$';
-	static const uint8_t BootloaderVersionStartChar = 'V';
 	static const uint8_t BinaryStartChar = 0xFA;
 	static const uint8_t AsciiEndChar1 = '\r';
 	static const uint8_t AsciiEndChar2 = '\n';
-	static const size_t MaximumSizeExpectedForBinaryPacket = 600;
+	static const size_t MaximumSizeExpectedForBinaryPacket = 256;
 	static const size_t MaximumSizeForBinaryStartAndAllGroupData = 18;
 	static const size_t MaximumSizeForAsciiPacket = 256;
 
@@ -139,16 +138,15 @@ struct PacketFinder::Impl
 		_bufferAppendLocation = 0;
 	}
 
-	void dataReceived(uint8_t data[], size_t length, bool bootloaderFilter, TimeStamp timestamp)
+	void dataReceived(uint8_t data[], size_t length, TimeStamp timestamp)
 	{
 		bool asciiStartFoundInProvidedBuffer = false;
-		bool asciiDoReset = false;
 
 		// Assume that since the _runningDataIndex is unsigned, any overflows
 		// will naturally go to zero, which is the behavior that we want.
 		for (size_t i = 0; i < length; i++, _runningDataIndex++)
 		{
-			if (data[i] == AsciiStartChar || (bootloaderFilter && (!_asciiOnDeck.currentlyBuildingAsciiPacket && data[i] == BootloaderVersionStartChar)))
+			if (data[i] == AsciiStartChar)
 			{
 				_asciiOnDeck.reset();
 				_asciiOnDeck.currentlyBuildingAsciiPacket = true;
@@ -162,8 +160,10 @@ struct PacketFinder::Impl
 			{
 				_asciiOnDeck.asciiEndChar1Found = true;
 			}
-			else if (((bootloaderFilter && _asciiOnDeck.currentlyBuildingAsciiPacket) || (!bootloaderFilter && _asciiOnDeck.asciiEndChar1Found)) && data[i] == AsciiEndChar2)
+			else if (_asciiOnDeck.asciiEndChar1Found)
 			{
+				if (data[i] == AsciiEndChar2)
+				{
 					// We have a possible data packet.
 					size_t runningIndexOfPacketStart = _asciiOnDeck.runningDataIndexOfStart;
 					uint8_t* startOfAsciiPacket = NULL;
@@ -196,36 +196,32 @@ struct PacketFinder::Impl
 							// through to reset tracking.
 						}
 					}
-					
-					if (packetLength > MaximumSizeForAsciiPacket) // confirm valid packet length
-						packetLength = 0;
-					
+
 					Packet p(reinterpret_cast<char*>(startOfAsciiPacket), packetLength);
 
 					if (p.isValid())
 						dispatchPacket(p, runningIndexOfPacketStart, _asciiOnDeck.timeFound);
-
-					asciiDoReset = true;
-			}
-			else if (_asciiOnDeck.asciiEndChar1Found)
-			{
-				// Invalid packet - EndChar2 not immediately after EndChar1
-				asciiDoReset = true;
-			}
-			else if (i + 1 - _asciiOnDeck.possibleStartOfPacketIndex > MaximumSizeForAsciiPacket)
-			{
-				// Invalid packet - length exceeds max packet
-				asciiDoReset = true;
-			}
-
-			if (asciiDoReset) // Either processed packet or invalid packet
-			{
+				}
+				
+				// Either this is an invalid packet or was a packet that was processed.
 				if (_binaryOnDeck.empty())
 					resetTracking();
 				else
 					_asciiOnDeck.reset();
 				asciiStartFoundInProvidedBuffer = false;
-				asciiDoReset = false;
+			}
+			else if (i + 1 > MaximumSizeForAsciiPacket)
+			{
+				// This must not be a valid ASCII packet.
+				if (_binaryOnDeck.empty())
+				{
+					resetTracking();
+				}
+				else
+				{
+					_asciiOnDeck.reset();
+					asciiStartFoundInProvidedBuffer = false;
+				}
 			}
 
 			// Update all of our binary packets on deck.
@@ -338,9 +334,6 @@ struct PacketFinder::Impl
 						}
 					}
 
-					if (packetLength > MaximumSizeExpectedForBinaryPacket) // confirm valid packet length
-						packetLength = 0;
-
 					Packet p(reinterpret_cast<char*>(packetStart), packetLength);
 
 					if (!p.isValid())
@@ -385,10 +378,8 @@ struct PacketFinder::Impl
 		}
 
 		if (_binaryOnDeck.empty() && !_asciiOnDeck.currentlyBuildingAsciiPacket)
-		{
 			// No data to copy over.
 			return;
-		}
 
 		// Perform any data copying to our receive buffer.
 
@@ -488,19 +479,12 @@ void PacketFinder::processReceivedData(char data[], size_t length)
 {
 	TimeStamp placeholder;
 
-	processReceivedData(data, length, false, placeholder);
+	processReceivedData(data, length, placeholder);
 }
 
-void PacketFinder::processReceivedData(char data[], size_t length, bool bootloaderFilter)
+void PacketFinder::processReceivedData(char data[], size_t length, TimeStamp timestamp)
 {
-	TimeStamp placeholder;
-
-	processReceivedData(data, length, bootloaderFilter, placeholder);
-}
-
-void PacketFinder::processReceivedData(char data[], size_t length, bool bootloaderFilter, TimeStamp timestamp)
-{
-	_pi->dataReceived(reinterpret_cast<uint8_t*>(data), length, bootloaderFilter, timestamp);
+	_pi->dataReceived(reinterpret_cast<uint8_t*>(data), length, timestamp);
 }
 
 #if PYTHON

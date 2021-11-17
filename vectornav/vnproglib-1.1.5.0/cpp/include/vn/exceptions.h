@@ -7,7 +7,6 @@
 #define _VN_EXCEPTIONS_H_
 
 #include <stdexcept>
-#include <string>
 
 namespace vn {
 

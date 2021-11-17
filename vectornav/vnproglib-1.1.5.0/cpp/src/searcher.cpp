@@ -178,11 +178,11 @@ void testDataReceivedHandler(void* userData)
 	TestHelper *th = static_cast<TestHelper*>(userData);
 
 	char buffer[0x100];
-	size_t numOfBytesRead = 0;
+	size_t numOfBytesRead;
 
 	th->serialPort->read(buffer, 0x100, numOfBytesRead);
 
-	th->packetFinder->processReceivedData(buffer, numOfBytesRead, false);
+	th->packetFinder->processReceivedData(buffer, numOfBytesRead);
 }
 
 #if defined(_MSC_VER)
