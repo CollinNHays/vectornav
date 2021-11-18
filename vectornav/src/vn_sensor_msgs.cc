@@ -21,6 +21,7 @@
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include "sensor_msgs/msg/temperature.hpp"
 #include "sensor_msgs/msg/time_reference.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 #include "vectornav_msgs/msg/attitude_group.hpp"
 #include "vectornav_msgs/msg/common_group.hpp"
@@ -75,6 +76,8 @@ public:
         "vectornav/velocity_body", 10);
     pub_pose_ =
         this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("vectornav/pose", 10);
+    pub_odom_ =
+        this->create_publisher<nav_msgs::msg::Odometry>("vectornav/odom", 10);
 
     //
     // Subscribers
@@ -261,17 +264,6 @@ private:
 
       pub_gnss_->publish(msg);
       
-      const double lla_datum[3] = {0.523301476, -1.491863724, 0};//Radians version of 29.982966 -85.477495 at sealevel
-      double ecef_datum[3];
-      wgsllh2ecef(lla_datum, ecef_datum);// Convert datum from radians lla to ecef
-      
-      //double lla_pose[3] = {msg_in->position.x * 0.017453293, msg_in->position.y * 0.017453293, msg_in->position.z};// Pose converted to Radians LLA
-      //double ecef_pose[3];
-      //wgsllh2ecef(lla_pose, ecef_pose);// Convert pose from radians lla to ecef
-      
-      //double ned_pose[3];
-      //wgsecef2ned_d(ecef_pose, ecef_datum, ned_pose);
-      
     }
 
     // Velocity
@@ -308,6 +300,44 @@ private:
       /// TODO(Dereck): Pose Covariance
 
       pub_pose_->publish(msg);
+    }
+    // Odometry
+    {
+      nav_msgs::msg::Odometry msg;
+      msg.header = msg_in->header;
+      msg.header.frame_id = "map";
+
+      msg.child_frame_id = "vectornav";
+      
+      const double lla_datum[3] = {deg2rad(29.982966), deg2rad(-85.477495), 0};//Radians version of 29.982966 -85.477495 at sealevel
+      double ecef_datum[3];
+      wgsllh2ecef(lla_datum, ecef_datum);// Convert datum from radians lla to ecef
+      
+      double lla_pose[3] = {deg2rad(msg_in->position.x), deg2rad(msg_in->position.y), msg_in->position.z};// Pose converted to Radians LLA
+      double ecef_pose[3];
+      wgsllh2ecef(lla_pose, ecef_pose);// Convert pose from radians lla to ecef
+      
+      double ned_pose[3];
+      wgsecef2ned_d(ecef_pose, ecef_datum, ned_pose);// Calculate NED position
+      double enu_pose[3] = {ned_pose[1], ned_pose[0], -ned_pose[2]};// Convert NED to ENU
+      
+      msg.pose.pose.position.x = enu_pose[0];
+      msg.pose.pose.position.y = enu_pose[1];
+      msg.pose.pose.position.z = enu_pose[2];
+      // Converts Quaternion in NED to ENU
+      tf2::Quaternion q, q_ned2enu;
+      q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);
+      auto latitude = deg2rad(msg_in->position.x);
+      auto longitude = deg2rad(msg_in->position.y);
+      fromMsg(msg_in->quaternion, q);
+      msg.pose.pose.orientation = toMsg(q_ned2enu * q);
+      /// TODO(Dereck): Pose Covariance
+
+      msg.twist.twist.linear = ins_velbody_;
+      msg.twist.twist.angular = msg_in->angularrate;
+      /// TODO(Dereck): Velocity Covariance
+      msg.pose.covariance[35] = -1.0;
+      pub_odom_->publish(msg);
     }
   }
 
@@ -404,6 +434,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::FluidPressure>::SharedPtr pub_pressure_;
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr pub_velocity_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pub_pose_;
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_odom_;
 
   /// Subscribers
   rclcpp::Subscription<vectornav_msgs::msg::CommonGroup>::SharedPtr sub_vn_common_;
