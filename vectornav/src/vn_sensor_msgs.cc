@@ -13,6 +13,7 @@
 #include <string>
 
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/fluid_pressure.hpp"
@@ -81,6 +82,8 @@ public:
         this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("vectornav/pose", 10);
     pub_odom_ =
         this->create_publisher<nav_msgs::msg::Odometry>("vectornav/odom", 10);
+    pub_coordframe_ =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("vectornav/coordinateframe", 10);
 
     //
     // Subscribers
@@ -307,9 +310,7 @@ private:
     }
     // Odometry
     {
-
-      
-      
+    
       //Check if the conditions are appropiate to set the initial datum point for the ENU frame and that the datum has not been set yat.
       if(gps_fix_ == 8 && msg_in->insstatus.mode == 2 && datum_set == false){
       
@@ -359,6 +360,30 @@ private:
       		
       		pub_odom_->publish(msg);// Publish the entire Message to ROS
       }
+    }
+    // Coordinate Frame Transform from Local odom ENU frame fixed at time 0 to WGS84 ECEF frame.
+    {
+      geometry_msgs::msg::PoseStamped msg;
+      msg.header = msg_in->header;
+      msg.header.frame_id = "earth";
+      msg.pose.position.x = init_ecef_datum[0];
+      msg.pose.position.y = init_ecef_datum[1];
+      msg.pose.position.z = init_ecef_datum[2];
+
+      // Converts Quaternion in NED to ECEF
+      //tf2::Quaternion q, q_enu2ecef, q_ned2enu;
+      //q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);
+
+      //auto latitude = deg2rad(msg_in->position.x);
+      //auto longitude = deg2rad(msg_in->position.y);
+      //q_enu2ecef.setRPY(0.0, latitude, longitude);
+
+      //fromMsg(msg_in->quaternion, q);
+
+      //msg.pose.pose.orientation = toMsg(q_ned2enu * q_enu2ecef * q);
+
+
+      pub_coordframe_->publish(msg);
     }
   }
 
@@ -456,6 +481,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr pub_velocity_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pub_pose_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_odom_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_coordframe_;
 
   /// Subscribers
   rclcpp::Subscription<vectornav_msgs::msg::CommonGroup>::SharedPtr sub_vn_common_;
