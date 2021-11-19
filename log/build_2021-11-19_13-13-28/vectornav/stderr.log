@@ -1,0 +1,30 @@
+make[2]: stat: /root/libswiftnav/build/libswiftnav.a: Permission denied
+make[2]: *** No rule to make target '/root/libswiftnav/build/libswiftnav.a', needed by 'vn_sensor_msgs'.  Stop.
+make[2]: *** Waiting for unfinished jobs....
+In file included from [01m[K/home/collin/ros2_galactic/install/rclcpp/include/rclcpp/client.hpp:40[m[K,
+                 from [01m[K/home/collin/ros2_galactic/install/rclcpp/include/rclcpp/callback_group.hpp:23[m[K,
+                 from [01m[K/home/collin/ros2_galactic/install/rclcpp/include/rclcpp/any_executable.hpp:20[m[K,
+                 from [01m[K/home/collin/ros2_galactic/install/rclcpp/include/rclcpp/memory_strategy.hpp:25[m[K,
+                 from [01m[K/home/collin/ros2_galactic/install/rclcpp/include/rclcpp/memory_strategies.hpp:18[m[K,
+                 from [01m[K/home/collin/ros2_galactic/install/rclcpp/include/rclcpp/executor_options.hpp:20[m[K,
+                 from [01m[K/home/collin/ros2_galactic/install/rclcpp/include/rclcpp/executor.hpp:36[m[K,
+                 from [01m[K/home/collin/ros2_galactic/install/rclcpp/include/rclcpp/executors/multi_threaded_executor.hpp:26[m[K,
+                 from [01m[K/home/collin/ros2_galactic/install/rclcpp/include/rclcpp/executors.hpp:21[m[K,
+                 from [01m[K/home/collin/ros2_galactic/install/rclcpp/include/rclcpp/rclcpp.hpp:156[m[K,
+                 from [01m[K/home/collin/ros2_ws/src/vectornav/vectornav/src/vn_sensor_msgs.cc:17[m[K:
+[01m[K/home/collin/ros2_ws/src/vectornav/vectornav/src/vn_sensor_msgs.cc:[m[K In member function ‘[01m[Kvoid VnSensorMsgs::fill_covariance_from_param(std::string, std::array<double, 9>&) const[m[K’:
+[01m[K/home/collin/ros2_ws/src/vectornav/vectornav/src/vn_sensor_msgs.cc:433:34:[m[K [01;35m[Kwarning: [m[Kformat ‘[01m[K%d[m[K’ expects argument of type ‘[01m[Kint[m[K’, but argument 6 has type ‘[01m[Klong unsigned int[m[K’ [[01;35m[K-Wformat=[m[K]
+  433 |       RCLCPP_ERROR(get_logger(), [01;35m[K"Parameter '%s' length is %d; expected 1, 3, or 9"[m[K,
+      |                                  [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+  434 |                    param_name.c_str(), [32m[Klength[m[K);
+      |                                        [32m[K~~~~~~[m[K
+      |                                        [32m[K|[m[K
+      |                                        [32m[Klong unsigned int[m[K
+[01m[K/home/collin/ros2_ws/src/vectornav/vectornav/src/vn_sensor_msgs.cc:433:61:[m[K [01;36m[Knote: [m[Kformat string is defined here
+  433 |       RCLCPP_ERROR(get_logger(), "Parameter '%s' length is [01;36m[K%d[m[K; expected 1, 3, or 9",
+      |                                                            [01;36m[K~^[m[K
+      |                                                             [01;36m[K|[m[K
+      |                                                             [01;36m[Kint[m[K
+      |                                                            [32m[K%ld[m[K
+make[1]: *** [CMakeFiles/Makefile2:100: CMakeFiles/vn_sensor_msgs.dir/all] Error 2
+make: *** [Makefile:141: all] Error 2

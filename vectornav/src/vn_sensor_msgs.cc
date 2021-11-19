@@ -307,16 +307,8 @@ private:
     }
     // Odometry
     {
-      nav_msgs::msg::Odometry msg;
-      msg.header = msg_in->header;
-      msg.header.frame_id = "map";
 
-      msg.child_frame_id = "vectornav";
       
-      
-      //const double lla_datum[3] = {deg2rad(30.0), deg2rad(-85.0), 0};//Radians version of a location at height in meters
-      //double ecef_datum[3];
-      //wgsllh2ecef(lla_datum, ecef_datum);// Convert datum from radians lla to ecef
       
       //Check if the conditions are appropiate to set the initial datum point for the ENU frame and that the datum has not been set yat.
       if(gps_fix_ == 8 && msg_in->insstatus.mode == 2 && datum_set == false){
@@ -330,58 +322,43 @@ private:
       		RCLCPP_ERROR(get_logger(), "DATUM HAS BEEN SET");//Print message when the datum has been set
       
       }
-      if(datum_set == true){
-      		//double lla_pose[3] = {deg2rad(msg_in->position.x), deg2rad(msg_in->position.y), msg_in->position.z};// Pose converted to Radians LLA
-      		double ecef_pose[3] = {ins_posecef_.x, ins_posecef_.y, ins_posecef_.z};
-      		//wgsllh2ecef(lla_pose, ecef_pose);// Convert pose from radians lla to ecef
-      		
-      		double ned_pose[3];
-      		wgsecef2ned_d(ecef_pose, init_ecef_datum, ned_pose);// Calculate NED position
-      		double enu_pose[3] = {ned_pose[1], ned_pose[0], -ned_pose[2]};// Convert NED to ENU
+      if(gps_fix_ == 8 && msg_in->insstatus.mode == 2 && datum_set == true){// Only Publish data if the best GPS signal is avaliable (Including RTK RCTM corrections) and the INS is in its best mode
+
+		//Odom Header
+		nav_msgs::msg::Odometry msg;
+		msg.header = msg_in->header;//Copy header with correct time
+		msg.header.frame_id = "map";/// TODO(Collin Hays): Is this correct for ENU frame?
+		msg.child_frame_id = "vectornav";
       
+      		//Convert ECEF pose provided by VectorNav to NED pose
+      		double ecef_pose[3] = {ins_posecef_.x, ins_posecef_.y, ins_posecef_.z};//ECEF Pose from Vectornav API
+      		double ned_pose[3];// Init Calculated NED pose
+      		wgsecef2ned_d(ecef_pose, init_ecef_datum, ned_pose);// Calculate NED position
+      		double enu_pose[3] = {ned_pose[1], ned_pose[0], -ned_pose[2]};// Convert NED to ENU Pose
+		
+		//Publish Position
       		msg.pose.pose.position.x = enu_pose[0];
       		msg.pose.pose.position.y = enu_pose[1];
-     		 msg.pose.pose.position.z = enu_pose[2];
+     		msg.pose.pose.position.z = enu_pose[2];
+     		
       		// Converts Quaternion in NED to ENU
-     		 tf2::Quaternion q, q_ned2enu;
-      		q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);
-      		auto latitude = deg2rad(msg_in->position.x);
-      		auto longitude = deg2rad(msg_in->position.y);
-      		fromMsg(msg_in->quaternion, q);
-      		msg.pose.pose.orientation = toMsg(q_ned2enu * q);
+		tf2::Quaternion q, q_ned2enu;// Define variables
+      		q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);// Quaternion to multiply by to convert NED to ENU quaternion calculated from RPY via setRPY TF2::Quaternion public class function
+		fromMsg(msg_in->quaternion, q);// Get quaternion from VectorNav API
+
+      		msg.pose.pose.orientation = toMsg(q_ned2enu * q);// Multiply NED quaternion by conversion quaternion to get ENU orientation quaternion and publish orientation
+      		
       		/// TODO(Dereck): Pose Covariance
 
-      		msg.twist.twist.linear = ins_velbody_;
-      		msg.twist.twist.angular = msg_in->angularrate;
+		//Twist
+      		msg.twist.twist.linear = ins_velbody_;// Publish liner twist velocity
+      		msg.twist.twist.angular = msg_in->angularrate;// Publish angular twist velocity
       		/// TODO(Dereck): Velocity Covariance
-      		msg.pose.covariance[35] = -1.0;//??? why
-      		pub_odom_->publish(msg);
+      		//msg.pose.covariance[35] = -1.0;//??? why
+      		
+      		
+      		pub_odom_->publish(msg);// Publish the entire Message to ROS
       }
-      //double lla_pose[3] = {deg2rad(msg_in->position.x), deg2rad(msg_in->position.y), msg_in->position.z};// Pose converted to Radians LLA
-      double ecef_pose[3] = {ins_posecef_.x, ins_posecef_.y, ins_posecef_.z};
-      //wgsllh2ecef(lla_pose, ecef_pose);// Convert pose from radians lla to ecef
-      
-      double ned_pose[3];
-      wgsecef2ned_d(ecef_pose, init_ecef_datum, ned_pose);// Calculate NED position
-      double enu_pose[3] = {ned_pose[1], ned_pose[0], -ned_pose[2]};// Convert NED to ENU
-      
-      msg.pose.pose.position.x = enu_pose[0];
-      msg.pose.pose.position.y = enu_pose[1];
-      msg.pose.pose.position.z = enu_pose[2];
-      // Converts Quaternion in NED to ENU
-      tf2::Quaternion q, q_ned2enu;
-      q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);
-      auto latitude = deg2rad(msg_in->position.x);
-      auto longitude = deg2rad(msg_in->position.y);
-      fromMsg(msg_in->quaternion, q);
-      msg.pose.pose.orientation = toMsg(q_ned2enu * q);
-      /// TODO(Dereck): Pose Covariance
-
-      msg.twist.twist.linear = ins_velbody_;
-      msg.twist.twist.angular = msg_in->angularrate;
-      /// TODO(Dereck): Velocity Covariance
-      msg.pose.covariance[35] = -1.0;
-      pub_odom_->publish(msg);
     }
   }
 
