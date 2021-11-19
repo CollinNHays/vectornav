@@ -34,6 +34,9 @@
 
 using namespace std::chrono_literals;
 
+bool datum_set = false;
+double init_ecef_datum[3];
+
 class VnSensorMsgs : public rclcpp::Node {
   /// TODO(Dereck): Add _ned topics as an optional feature
   /// TODO(Dereck): Detect when a subscriber is connected but the required data is not provided by
@@ -113,6 +116,7 @@ public:
   }
 
 private:
+  
   /** Convert VN common group data to ROS2 standard message types
    *
    */
@@ -309,16 +313,56 @@ private:
 
       msg.child_frame_id = "vectornav";
       
-      const double lla_datum[3] = {deg2rad(29.982966), deg2rad(-85.477495), 0};//Radians version of 29.982966 -85.477495 at sealevel
-      double ecef_datum[3];
-      wgsllh2ecef(lla_datum, ecef_datum);// Convert datum from radians lla to ecef
       
-      double lla_pose[3] = {deg2rad(msg_in->position.x), deg2rad(msg_in->position.y), msg_in->position.z};// Pose converted to Radians LLA
-      double ecef_pose[3];
-      wgsllh2ecef(lla_pose, ecef_pose);// Convert pose from radians lla to ecef
+      //const double lla_datum[3] = {deg2rad(30.0), deg2rad(-85.0), 0};//Radians version of a location at height in meters
+      //double ecef_datum[3];
+      //wgsllh2ecef(lla_datum, ecef_datum);// Convert datum from radians lla to ecef
+      
+      //Check if the conditions are appropiate to set the initial datum point for the ENU frame and that the datum has not been set yat.
+      if(gps_fix_ == 8 && msg_in->insstatus.mode == 2 && datum_set == false){
+      
+      		//Set the ECEF datum
+      		init_ecef_datum[0] = ins_posecef_.x;
+      		init_ecef_datum[1] = ins_posecef_.y;
+      		init_ecef_datum[2] = ins_posecef_.z;
+      		//Mark datum as set such that it only sets once
+      		datum_set = true;
+      		RCLCPP_ERROR(get_logger(), "DATUM HAS BEEN SET");//Print message when the datum has been set
+      
+      }
+      if(datum_set == true){
+      		//double lla_pose[3] = {deg2rad(msg_in->position.x), deg2rad(msg_in->position.y), msg_in->position.z};// Pose converted to Radians LLA
+      		double ecef_pose[3] = {ins_posecef_.x, ins_posecef_.y, ins_posecef_.z};
+      		//wgsllh2ecef(lla_pose, ecef_pose);// Convert pose from radians lla to ecef
+      		
+      		double ned_pose[3];
+      		wgsecef2ned_d(ecef_pose, init_ecef_datum, ned_pose);// Calculate NED position
+      		double enu_pose[3] = {ned_pose[1], ned_pose[0], -ned_pose[2]};// Convert NED to ENU
+      
+      		msg.pose.pose.position.x = enu_pose[0];
+      		msg.pose.pose.position.y = enu_pose[1];
+     		 msg.pose.pose.position.z = enu_pose[2];
+      		// Converts Quaternion in NED to ENU
+     		 tf2::Quaternion q, q_ned2enu;
+      		q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);
+      		auto latitude = deg2rad(msg_in->position.x);
+      		auto longitude = deg2rad(msg_in->position.y);
+      		fromMsg(msg_in->quaternion, q);
+      		msg.pose.pose.orientation = toMsg(q_ned2enu * q);
+      		/// TODO(Dereck): Pose Covariance
+
+      		msg.twist.twist.linear = ins_velbody_;
+      		msg.twist.twist.angular = msg_in->angularrate;
+      		/// TODO(Dereck): Velocity Covariance
+      		msg.pose.covariance[35] = -1.0;//??? why
+      		pub_odom_->publish(msg);
+      }
+      //double lla_pose[3] = {deg2rad(msg_in->position.x), deg2rad(msg_in->position.y), msg_in->position.z};// Pose converted to Radians LLA
+      double ecef_pose[3] = {ins_posecef_.x, ins_posecef_.y, ins_posecef_.z};
+      //wgsllh2ecef(lla_pose, ecef_pose);// Convert pose from radians lla to ecef
       
       double ned_pose[3];
-      wgsecef2ned_d(ecef_pose, ecef_datum, ned_pose);// Calculate NED position
+      wgsecef2ned_d(ecef_pose, init_ecef_datum, ned_pose);// Calculate NED position
       double enu_pose[3] = {ned_pose[1], ned_pose[0], -ned_pose[2]};// Convert NED to ENU
       
       msg.pose.pose.position.x = enu_pose[0];
