@@ -37,7 +37,7 @@ public:
     // TODO(Dereck): Add constraints to parameters
 
     // Device Port
-    auto port = declare_parameter<std::string>("port", "/dev/serial/by-id/usb-FTDI_USB-RS422_Cable_FT4JCAVE-if00-port0");
+    auto port = declare_parameter<std::string>("port", "/dev/vectornav");
 
     // Baud Rate
     // 5.2.6
