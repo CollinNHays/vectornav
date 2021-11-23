@@ -280,9 +280,14 @@ private:
       msg.twist.twist.linear = ins_velbody_;
       msg.twist.twist.angular = msg_in->angularrate;
 
-      /// TODO(Dereck): Velocity Covariance
+      msg.twist.covariance[0] = -1.0;
+      msg.twist.covariance[7] = -1.0;
 
-      pub_velocity_->publish(msg);
+      /// TODO(Dereck): Velocity Covariance
+      if(msg_in->insstatus.mode == 2)
+	{
+		pub_velocity_->publish(msg);
+	}
     }
 
     // Pose (ECEF)
