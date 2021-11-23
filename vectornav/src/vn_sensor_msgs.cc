@@ -294,20 +294,15 @@ private:
     {
       geometry_msgs::msg::PoseWithCovarianceStamped msg;
       msg.header = msg_in->header;
-      msg.header.frame_id = "earth";
+      msg.header.frame_id = "map";
       msg.pose.pose.position = ins_posecef_;
 
-      // Converts Quaternion in NED to ECEF
-      tf2::Quaternion q, q_enu2ecef, q_ned2enu;
-      q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);
+	// Converts Quaternion in NED to ENU
+	tf2::Quaternion q, q_ned2enu;// Define variables
+      	q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);// Quaternion to multiply by to convert NED to ENU quaternion calculated from RPY via setRPY TF2::Quaternion public class function
+	fromMsg(msg_in->quaternion, q);// Get quaternion from VectorNav API
 
-      auto latitude = deg2rad(msg_in->position.x);
-      auto longitude = deg2rad(msg_in->position.y);
-      q_enu2ecef.setRPY(0.0, latitude, longitude);
-
-      fromMsg(msg_in->quaternion, q);
-
-      msg.pose.pose.orientation = toMsg(q_ned2enu * q_enu2ecef * q);
+      	msg.pose.pose.orientation = toMsg(q_ned2enu * q);// Multiply NED quaternion by conversion quaternion to get ENU orientation quaternion and publish orientation
 
       /// TODO(Dereck): Pose Covariance
 
