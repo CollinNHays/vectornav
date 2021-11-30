@@ -12,6 +12,8 @@
 #include <memory>
 #include <string>
 
+#include "Eigen/Dense"
+
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
@@ -37,6 +39,7 @@ using namespace std::chrono_literals;
 
 bool datum_set = false;
 double init_ecef_datum[3];
+double ECEFtoENURotation[4]; 
 
 class VnSensorMsgs : public rclcpp::Node {
   /// TODO(Dereck): Add _ned topics as an optional feature
@@ -318,6 +321,65 @@ private:
       		init_ecef_datum[0] = ins_posecef_.x;
       		init_ecef_datum[1] = ins_posecef_.y;
       		init_ecef_datum[2] = ins_posecef_.z;
+
+      		Eigen::Matrix3d mat;
+
+      		mat << -sin(msg_in->position.y), cos(msg_in->position.y), 0.0, -cos(msg_in->position.y)*sin(msg_in->position.x), -sin(msg_in->position.y)*sin(msg_in->position.x), cos(msg_in->position.x), cos(msg_in->position.y)*cos(msg_in->position.x), sin(msg_in->position.y)*cos(msg_in->position.x), sin(msg_in->position.x);
+
+
+    Eigen::Quaterniond quat = {1.0, 0.0, 0.0, 0.0};
+    double det_err = std::abs(1.0 - mat.determinant());
+    if (det_err > 0.00000001) {RCLCPP_ERROR(get_logger(), "Matrix is not a DCM. ");}
+    
+    double temp = 1.0 + mat(0,0) + mat(1,1) + mat(2,2);
+    if (temp > 0.00000001) {
+        quat.w() = 0.5*std::sqrt(temp);
+        temp    = 0.25 / quat.w();
+        quat.x() = temp*(mat(1,2)-mat(2,1));
+        quat.y() = temp*(mat(2,0)-mat(0,2));
+        quat.z() = temp*(mat(0,1)-mat(1,0));
+    } else {
+        temp = 1.0 + mat(0,0) - mat(1,1) - mat(2,2);
+        if ( temp > 1.e-8 ) {
+            quat.x() = 0.5*sqrt(temp);
+            temp    = 0.25 / quat.x();
+            quat.w() = temp*(mat(1,2)-mat(2,1));
+            quat.y() = temp*(mat(0,1)+mat(1,0));
+            quat.z() = temp*(mat(0,2)+mat(2,0));
+        }
+        else {
+            temp = 1 - mat(0,0) + mat(1,1) - mat(2,2);
+            if ( temp > 1.e-8 ) {
+                quat.y() = 0.5*sqrt(temp);
+                temp = 0.25 / quat.y();
+                quat.w() = temp*(mat(0,2)-mat(2,0));
+                quat.x() = temp*(mat(0,1)+mat(1,0));
+                quat.z() = temp*(mat(1,2)+mat(2,1));
+            }
+            else {
+                temp = 1 - mat(0,0) - mat(1,1) + mat(2,2);
+                if ( temp > 1.e-8 ) {
+                    quat.z() = 0.5*sqrt(temp);
+                    temp = 0.25 / quat.z();
+                    quat.w() = temp*(mat(1,0)-mat(0,1));
+                    quat.x() = temp*(mat(0,2)+mat(2,0));
+                    quat.y() = temp*(mat(1,2)+mat(2,1));
+                }
+                else {
+                    RCLCPP_ERROR(get_logger(), "Invalid DCM diagonals. ");
+                }
+            }
+        }
+    }
+
+		ECEFtoENURotation[0] = quat.x();
+		ECEFtoENURotation[1] = quat.y();
+		ECEFtoENURotation[2] = quat.z();
+		ECEFtoENURotation[3] = quat.w();
+
+                //tf2::fromMsg(transformQuat, ECEFtoENURotation);
+		//ECEFtoENURotation.Quaternion(quat.x(), quat.y(), quat.z(), quat.w());
+
       		//Mark datum as set such that it only sets once
       		datum_set = true;
       		RCLCPP_ERROR(get_logger(), "DATUM HAS BEEN SET");//Print message when the datum has been set
@@ -370,17 +432,10 @@ private:
       msg.pose.position.y = init_ecef_datum[1];
       msg.pose.position.z = init_ecef_datum[2];
 
-      // Converts Quaternion in NED to ECEF
-      //tf2::Quaternion q, q_enu2ecef, q_ned2enu;
-      //q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);
-
-      //auto latitude = deg2rad(msg_in->position.x);
-      //auto longitude = deg2rad(msg_in->position.y);
-      //q_enu2ecef.setRPY(0.0, latitude, longitude);
-
-      //fromMsg(msg_in->quaternion, q);
-
-      //msg.pose.pose.orientation = toMsg(q_ned2enu * q_enu2ecef * q);
+      msg.pose.orientation.x = ECEFtoENURotation[0];
+      msg.pose.orientation.y = ECEFtoENURotation[1];
+      msg.pose.orientation.z = ECEFtoENURotation[2];
+      msg.pose.orientation.w = ECEFtoENURotation[3];
 
 
       pub_coordframe_->publish(msg);

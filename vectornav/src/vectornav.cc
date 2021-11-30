@@ -53,7 +53,7 @@ public:
     // Async output Frequency (Hz)
     // 5.2.8
     // {1 2 4 5 10 20 25 40 50 100 200}
-    declare_parameter<int>("AsyncDataOutputFrequency", 20);
+    declare_parameter<int>("AsyncDataOutputFrequency", 100);
 
     // Sync control
     // 5.2.9
@@ -79,8 +79,8 @@ public:
 
     // Binary Output Register 1
     // 5.2.11
-    declare_parameter<int>("BO1.asyncMode", vn::protocol::uart::AsyncMode::ASYNCMODE_BOTH);
-    declare_parameter<int>("BO1.rateDivisor", 40); // 20Hz
+    declare_parameter<int>("BO1.asyncMode", 0x01);// Serial Port 1
+    declare_parameter<int>("BO1.rateDivisor", 8); // 100Hz
     declare_parameter<int>("BO1.commonField", 0x7FFF);
     declare_parameter<int>("BO1.timeField", vn::protocol::uart::TimeGroup::TIMEGROUP_NONE);
     declare_parameter<int>("BO1.imuField", vn::protocol::uart::ImuGroup::IMUGROUP_NONE);

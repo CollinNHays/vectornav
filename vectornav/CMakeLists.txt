@@ -28,6 +28,8 @@ find_package(tf2_geometry_msgs REQUIRED)
 
 # vncxx
 add_subdirectory(vnproglib-1.2.0.0/cpp)
+#eigen
+include_directories(Eigen)
 
 # vectornav
 add_executable(${PROJECT_NAME} src/vectornav.cc)
