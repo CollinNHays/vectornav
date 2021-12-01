@@ -425,20 +425,22 @@ private:
     }
     // Coordinate Frame Transform from Local odom ENU frame fixed at time 0 to WGS84 ECEF frame.
     {
-      geometry_msgs::msg::PoseStamped msg;
-      msg.header = msg_in->header;
-      msg.header.frame_id = "earth";
-      msg.pose.position.x = init_ecef_datum[0];
-      msg.pose.position.y = init_ecef_datum[1];
-      msg.pose.position.z = init_ecef_datum[2];
+	if(datum_set == true){
+	      geometry_msgs::msg::PoseStamped msg;
+	      msg.header = msg_in->header;
+	      msg.header.frame_id = "earth";
+	      msg.pose.position.x = init_ecef_datum[0];
+	      msg.pose.position.y = init_ecef_datum[1];
+	      msg.pose.position.z = init_ecef_datum[2];
 
-      msg.pose.orientation.x = ECEFtoENURotation[0];
-      msg.pose.orientation.y = ECEFtoENURotation[1];
-      msg.pose.orientation.z = ECEFtoENURotation[2];
-      msg.pose.orientation.w = ECEFtoENURotation[3];
+	      msg.pose.orientation.x = ECEFtoENURotation[0];
+	      msg.pose.orientation.y = ECEFtoENURotation[1];
+	      msg.pose.orientation.z = ECEFtoENURotation[2];
+	      msg.pose.orientation.w = ECEFtoENURotation[3];
 
 
-      pub_coordframe_->publish(msg);
+	      pub_coordframe_->publish(msg);
+	}
     }
   }
 
