@@ -324,7 +324,7 @@ private:
 
       		Eigen::Matrix3d mat;
 
-      		mat << -sin(msg_in->position.y), cos(msg_in->position.y), 0.0, -cos(msg_in->position.y)*sin(msg_in->position.x), -sin(msg_in->position.y)*sin(msg_in->position.x), cos(msg_in->position.x), cos(msg_in->position.y)*cos(msg_in->position.x), sin(msg_in->position.y)*cos(msg_in->position.x), sin(msg_in->position.x);
+      		mat << -sin(deg2rad(msg_in->position.y)), cos(deg2rad(msg_in->position.y)), 0.0, -cos(deg2rad(msg_in->position.y))*sin(deg2rad(msg_in->position.x)), -sin(deg2rad(msg_in->position.y))*sin(deg2rad(msg_in->position.x)), cos(deg2rad(msg_in->position.x)), cos(deg2rad(msg_in->position.y))*cos(deg2rad(msg_in->position.x)), sin(deg2rad(msg_in->position.y))*cos(deg2rad(msg_in->position.x)), sin(deg2rad(msg_in->position.x));
 
 
     Eigen::Quaterniond quat = {1.0, 0.0, 0.0, 0.0};
