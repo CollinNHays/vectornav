@@ -297,15 +297,27 @@ private:
     {
       geometry_msgs::msg::PoseWithCovarianceStamped msg;
       msg.header = msg_in->header;
-      msg.header.frame_id = "map";
+      msg.header.frame_id = "vectornav";
       msg.pose.pose.position = ins_posecef_;
+      
+      		//Convert ECEF pose provided by VectorNav to NED pose
+      		double ecef_pose[3] = {ins_posecef_.x, ins_posecef_.y, ins_posecef_.z};//ECEF Pose from Vectornav API
+      		double ned_pose[3];// Init Calculated NED pose
+      		wgsecef2ned_d(ecef_pose, init_ecef_datum, ned_pose);// Calculate NED position
+      		double enu_pose[3] = {ned_pose[1], ned_pose[0], -ned_pose[2]};// Convert NED to ENU Pose
+		
+		//Publish Position
+      		msg.pose.pose.position.x = enu_pose[0];
+      		msg.pose.pose.position.y = enu_pose[1];
+     		msg.pose.pose.position.z = enu_pose[2];
+     		
+      		// Converts Quaternion in NED to ENU
+		tf2::Quaternion q, q_ned2enu;// Define variables
+      		q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);// Quaternion to multiply by to convert NED to ENU quaternion calculated from RPY via setRPY TF2::Quaternion public class function
+		fromMsg(msg_in->quaternion, q);// Get quaternion from VectorNav API
 
-	// Converts Quaternion in NED to ENU
-	tf2::Quaternion q, q_ned2enu;// Define variables
-      	q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);// Quaternion to multiply by to convert NED to ENU quaternion calculated from RPY via setRPY TF2::Quaternion public class function
-	fromMsg(msg_in->quaternion, q);// Get quaternion from VectorNav API
+      		msg.pose.pose.orientation = toMsg(q_ned2enu * q);// Multiply NED quaternion by conversion quaternion to get ENU orientation quaternion and publish orientation
 
-      	msg.pose.pose.orientation = toMsg(q_ned2enu * q);// Multiply NED quaternion by conversion quaternion to get ENU orientation quaternion and publish orientation
 
       /// TODO(Dereck): Pose Covariance
 
