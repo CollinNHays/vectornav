@@ -39,8 +39,8 @@ target_link_libraries(${PROJECT_NAME} vncxx )
 # vn_sensor_msgs
 add_executable(vn_sensor_msgs src/vn_sensor_msgs.cc)
 ament_target_dependencies(vn_sensor_msgs rclcpp sensor_msgs nav_msgs vectornav_msgs tf2_geometry_msgs)
-target_include_directories(vn_sensor_msgs PUBLIC ~/libswiftnav/include)
-target_link_libraries(vn_sensor_msgs /root/libswiftnav/build/libswiftnav.a)
+target_include_directories(vn_sensor_msgs PUBLIC ~/library/libswiftnav/include)
+target_link_libraries(vn_sensor_msgs /home/rover/library/libswiftnav/build/libswiftnav.a)
 
 # install
 install(TARGETS
