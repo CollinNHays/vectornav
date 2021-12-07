@@ -84,9 +84,9 @@ public:
     pub_pose_ =
         this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("vectornav/pose", 10);
     pub_odom_ =
-        this->create_publisher<nav_msgs::msg::Odometry>("vectornav/odom", 10);
+        this->create_publisher<nav_msgs::msg::Odometry>("vectornav/gnss_ins", 10);
     pub_coordframe_ =
-        this->create_publisher<geometry_msgs::msg::PoseStamped>("vectornav/coordinateframe", 10);
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("vectornav/enu2ecefTransform", 10);
 
     //
     // Subscribers
@@ -384,9 +384,9 @@ private:
         }
     }
 
-		ECEFtoENURotation[0] = quat.x();
-		ECEFtoENURotation[1] = quat.y();
-		ECEFtoENURotation[2] = quat.z();
+		ECEFtoENURotation[0] = -quat.x();
+		ECEFtoENURotation[1] = -quat.y();
+		ECEFtoENURotation[2] = -quat.z();
 		ECEFtoENURotation[3] = quat.w();
 
                 //tf2::fromMsg(transformQuat, ECEFtoENURotation);
@@ -402,7 +402,7 @@ private:
 		//Odom Header
 		nav_msgs::msg::Odometry msg;
 		msg.header = msg_in->header;//Copy header with correct time
-		msg.header.frame_id = "map";/// TODO(Collin Hays): Is this correct for ENU frame?
+		msg.header.frame_id = "ENU_fixed";/// TODO(Collin Hays): Is this correct for ENU frame?
 		msg.child_frame_id = "vectornav";
       
       		//Convert ECEF pose provided by VectorNav to NED pose
@@ -440,7 +440,7 @@ private:
 	if(datum_set == true){
 	      geometry_msgs::msg::PoseStamped msg;
 	      msg.header = msg_in->header;
-	      msg.header.frame_id = "earth";
+	      msg.header.frame_id = "ENU_to_ECEF";
 	      msg.pose.position.x = init_ecef_datum[0];
 	      msg.pose.position.y = init_ecef_datum[1];
 	      msg.pose.position.z = init_ecef_datum[2];
