@@ -397,7 +397,7 @@ private:
       		RCLCPP_ERROR(get_logger(), "DATUM HAS BEEN SET");//Print message when the datum has been set
       
       }
-      if(msg_in->insstatus.mode == 2 && datum_set == true){// Only Publish data if the INS is in its best mode
+      if(datum_set == true){// Only Publish data if the INS is in its best mode
 
 		//Odom Header
 		nav_msgs::msg::Odometry msg;
