@@ -90,6 +90,7 @@ public:
                            vn::protocol::uart::AttitudeGroup::ATTITUDEGROUP_DCM);
     declare_parameter<int>("BO1.insField", vn::protocol::uart::InsGroup::INSGROUP_POSECEF | 
                                                vn::protocol::uart::InsGroup::INSGROUP_VELBODY | 
+                                               vn::protocol::uart::InsGroup::INSGROUP_VELNED | 
                                                vn::protocol::uart::InsGroup::INSGROUP_POSU | 
                                                vn::protocol::uart::InsGroup::INSGROUP_VELU);
     declare_parameter<int>("BO1.gps2Field", vn::protocol::uart::GpsGroup::GPSGROUP_NONE);

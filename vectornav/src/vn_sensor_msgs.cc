@@ -300,23 +300,23 @@ private:
       msg.header.frame_id = "vectornav";
       msg.pose.pose.position = ins_posecef_;
       
-      		//Convert ECEF pose provided by VectorNav to NED pose
-      		double ecef_pose[3] = {ins_posecef_.x, ins_posecef_.y, ins_posecef_.z};//ECEF Pose from Vectornav API
-      		double ned_pose[3];// Init Calculated NED pose
-      		wgsecef2ned_d(ecef_pose, init_ecef_datum, ned_pose);// Calculate NED position
-      		double enu_pose[3] = {ned_pose[1], ned_pose[0], -ned_pose[2]};// Convert NED to ENU Pose
+      //Convert ECEF pose provided by VectorNav to NED pose
+      double ecef_pose[3] = {ins_posecef_.x, ins_posecef_.y, ins_posecef_.z};//ECEF Pose from Vectornav API
+      double ned_pose[3];// Init Calculated NED pose
+      wgsecef2ned_d(ecef_pose, init_ecef_datum, ned_pose);// Calculate NED position
+      double enu_pose[3] = {ned_pose[1], ned_pose[0], -ned_pose[2]};// Convert NED to ENU Pose
 		
-		//Publish Position
-      		msg.pose.pose.position.x = enu_pose[0];
-      		msg.pose.pose.position.y = enu_pose[1];
-     		msg.pose.pose.position.z = enu_pose[2];
-     		
-      		// Converts Quaternion in NED to ENU
-		tf2::Quaternion q, q_ned2enu;// Define variables
-      		q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);// Quaternion to multiply by to convert NED to ENU quaternion calculated from RPY via setRPY TF2::Quaternion public class function
-		fromMsg(msg_in->quaternion, q);// Get quaternion from VectorNav API
+	  //Publish Position
+      msg.pose.pose.position.x = enu_pose[0];
+      msg.pose.pose.position.y = enu_pose[1];
+      msg.pose.pose.position.z = enu_pose[2];
+     
+      // Converts Quaternion in NED to ENU
+	  tf2::Quaternion q, q_ned2enu;// Define variables
+      q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);// Quaternion to multiply by to convert NED to ENU quaternion calculated from RPY via setRPY TF2::Quaternion public class function
+	  fromMsg(msg_in->quaternion, q);// Get quaternion from VectorNav API
 
-      		msg.pose.pose.orientation = toMsg(q_ned2enu * q);// Multiply NED quaternion by conversion quaternion to get ENU orientation quaternion and publish orientation
+      msg.pose.pose.orientation = toMsg(q_ned2enu * q);// Multiply NED quaternion by conversion quaternion to get ENU orientation quaternion and publish orientation
 
 
       /// TODO(Dereck): Pose Covariance
@@ -329,72 +329,71 @@ private:
       //Check if the conditions are appropiate to set the initial datum point for the ENU frame and that the datum has not been set yat.
       if(gps_fix_ == 8 && msg_in->insstatus.mode == 2 && datum_set == false){
       
-      		//Set the ECEF datum
-      		init_ecef_datum[0] = ins_posecef_.x;
-      		init_ecef_datum[1] = ins_posecef_.y;
-      		init_ecef_datum[2] = ins_posecef_.z;
+        //Set the ECEF datum
+      	init_ecef_datum[0] = ins_posecef_.x;
+      	init_ecef_datum[1] = ins_posecef_.y;
+      	init_ecef_datum[2] = ins_posecef_.z;
 
-      		Eigen::Matrix3d mat;
+      	Eigen::Matrix3d mat;
 
-      		mat << -sin(deg2rad(msg_in->position.y)), cos(deg2rad(msg_in->position.y)), 0.0, -cos(deg2rad(msg_in->position.y))*sin(deg2rad(msg_in->position.x)), -sin(deg2rad(msg_in->position.y))*sin(deg2rad(msg_in->position.x)), cos(deg2rad(msg_in->position.x)), cos(deg2rad(msg_in->position.y))*cos(deg2rad(msg_in->position.x)), sin(deg2rad(msg_in->position.y))*cos(deg2rad(msg_in->position.x)), sin(deg2rad(msg_in->position.x));
+      	mat << -sin(deg2rad(msg_in->position.y)), cos(deg2rad(msg_in->position.y)), 0.0, -cos(deg2rad(msg_in->position.y))*sin(deg2rad(msg_in->position.x)), -sin(deg2rad(msg_in->position.y))*sin(deg2rad(msg_in->position.x)), cos(deg2rad(msg_in->position.x)), cos(deg2rad(msg_in->position.y))*cos(deg2rad(msg_in->position.x)), sin(deg2rad(msg_in->position.y))*cos(deg2rad(msg_in->position.x)), sin(deg2rad(msg_in->position.x));
 
-
-    Eigen::Quaterniond quat = {1.0, 0.0, 0.0, 0.0};
-    double det_err = std::abs(1.0 - mat.determinant());
-    if (det_err > 0.00000001) {RCLCPP_ERROR(get_logger(), "Matrix is not a DCM. ");}
+        Eigen::Quaterniond quat = {1.0, 0.0, 0.0, 0.0};
+        double det_err = std::abs(1.0 - mat.determinant());
+        if (det_err > 0.00000001) {RCLCPP_ERROR(get_logger(), "Matrix is not a DCM. ");}
     
-    double temp = 1.0 + mat(0,0) + mat(1,1) + mat(2,2);
-    if (temp > 0.00000001) {
-        quat.w() = 0.5*std::sqrt(temp);
-        temp    = 0.25 / quat.w();
-        quat.x() = temp*(mat(1,2)-mat(2,1));
-        quat.y() = temp*(mat(2,0)-mat(0,2));
-        quat.z() = temp*(mat(0,1)-mat(1,0));
-    } else {
-        temp = 1.0 + mat(0,0) - mat(1,1) - mat(2,2);
-        if ( temp > 1.e-8 ) {
-            quat.x() = 0.5*sqrt(temp);
-            temp    = 0.25 / quat.x();
-            quat.w() = temp*(mat(1,2)-mat(2,1));
-            quat.y() = temp*(mat(0,1)+mat(1,0));
-            quat.z() = temp*(mat(0,2)+mat(2,0));
-        }
-        else {
-            temp = 1 - mat(0,0) + mat(1,1) - mat(2,2);
+        double temp = 1.0 + mat(0,0) + mat(1,1) + mat(2,2);
+        if (temp > 0.00000001) {
+            quat.w() = 0.5*std::sqrt(temp);
+            temp    = 0.25 / quat.w();
+            quat.x() = temp*(mat(1,2)-mat(2,1));
+            quat.y() = temp*(mat(2,0)-mat(0,2));
+            quat.z() = temp*(mat(0,1)-mat(1,0));
+        } else {
+            temp = 1.0 + mat(0,0) - mat(1,1) - mat(2,2);
             if ( temp > 1.e-8 ) {
-                quat.y() = 0.5*sqrt(temp);
-                temp = 0.25 / quat.y();
-                quat.w() = temp*(mat(0,2)-mat(2,0));
-                quat.x() = temp*(mat(0,1)+mat(1,0));
-                quat.z() = temp*(mat(1,2)+mat(2,1));
+                quat.x() = 0.5*sqrt(temp);
+                temp    = 0.25 / quat.x();
+                quat.w() = temp*(mat(1,2)-mat(2,1));
+                quat.y() = temp*(mat(0,1)+mat(1,0));
+                quat.z() = temp*(mat(0,2)+mat(2,0));
             }
             else {
-                temp = 1 - mat(0,0) - mat(1,1) + mat(2,2);
+                temp = 1 - mat(0,0) + mat(1,1) - mat(2,2);
                 if ( temp > 1.e-8 ) {
-                    quat.z() = 0.5*sqrt(temp);
-                    temp = 0.25 / quat.z();
-                    quat.w() = temp*(mat(1,0)-mat(0,1));
-                    quat.x() = temp*(mat(0,2)+mat(2,0));
-                    quat.y() = temp*(mat(1,2)+mat(2,1));
+                    quat.y() = 0.5*sqrt(temp);
+                    temp = 0.25 / quat.y();
+                    quat.w() = temp*(mat(0,2)-mat(2,0));
+                    quat.x() = temp*(mat(0,1)+mat(1,0));
+                    quat.z() = temp*(mat(1,2)+mat(2,1));
                 }
                 else {
-                    RCLCPP_ERROR(get_logger(), "Invalid DCM diagonals. ");
+                    temp = 1 - mat(0,0) - mat(1,1) + mat(2,2);
+                    if ( temp > 1.e-8 ) {
+                        quat.z() = 0.5*sqrt(temp);
+                        temp = 0.25 / quat.z();
+                        quat.w() = temp*(mat(1,0)-mat(0,1));
+                        quat.x() = temp*(mat(0,2)+mat(2,0));
+                        quat.y() = temp*(mat(1,2)+mat(2,1));
+                    }
+                    else {
+                        RCLCPP_ERROR(get_logger(), "Invalid DCM diagonals. ");
+                    }
                 }
             }
         }
-    }
 
 		ECEFtoENURotation[0] = -quat.x();
 		ECEFtoENURotation[1] = -quat.y();
 		ECEFtoENURotation[2] = -quat.z();
 		ECEFtoENURotation[3] = quat.w();
 
-                //tf2::fromMsg(transformQuat, ECEFtoENURotation);
+        //tf2::fromMsg(transformQuat, ECEFtoENURotation);
 		//ECEFtoENURotation.Quaternion(quat.x(), quat.y(), quat.z(), quat.w());
 
-      		//Mark datum as set such that it only sets once
-      		datum_set = true;
-      		RCLCPP_ERROR(get_logger(), "DATUM HAS BEEN SET");//Print message when the datum has been set
+      	//Mark datum as set such that it only sets once
+      	datum_set = true;
+      	RCLCPP_ERROR(get_logger(), "DATUM HAS BEEN SET");//Print message when the datum has been set
       
       }
       if(msg_in->insstatus.mode != 0 && datum_set == true){// Only Publish data if the INS is in its best mode
@@ -405,54 +404,58 @@ private:
 		msg.header.frame_id = "ENU_fixed";/// TODO(Collin Hays): Is this correct for ENU frame?
 		msg.child_frame_id = "vectornav";
       
-      		//Convert ECEF pose provided by VectorNav to NED pose
-      		double ecef_pose[3] = {ins_posecef_.x, ins_posecef_.y, ins_posecef_.z};//ECEF Pose from Vectornav API
-      		double ned_pose[3];// Init Calculated NED pose
-      		wgsecef2ned_d(ecef_pose, init_ecef_datum, ned_pose);// Calculate NED position
-      		double enu_pose[3] = {ned_pose[1], ned_pose[0], -ned_pose[2]};// Convert NED to ENU Pose
+      	//Convert ECEF pose provided by VectorNav to NED pose
+      	double ecef_pose[3] = {ins_posecef_.x, ins_posecef_.y, ins_posecef_.z};//ECEF Pose from Vectornav API
+      	double ned_pose[3];// Init Calculated NED pose
+      	wgsecef2ned_d(ecef_pose, init_ecef_datum, ned_pose);// Calculate NED position
+      	double enu_pose[3] = {ned_pose[1], ned_pose[0], -ned_pose[2]};// Convert NED to ENU Pose
 		
 		//Publish Position
-      		msg.pose.pose.position.x = enu_pose[0];
-      		msg.pose.pose.position.y = enu_pose[1];
-     		msg.pose.pose.position.z = enu_pose[2];
+      	msg.pose.pose.position.x = enu_pose[0];
+      	msg.pose.pose.position.y = enu_pose[1];
+     	msg.pose.pose.position.z = enu_pose[2];
      		
-      		// Converts Quaternion in NED to ENU
+      	// Converts Quaternion in NED to ENU
 		tf2::Quaternion q, q_ned2enu;// Define variables
-      		q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);// Quaternion to multiply by to convert NED to ENU quaternion calculated from RPY via setRPY TF2::Quaternion public class function
+      	q_ned2enu.setRPY(M_PI, 0.0, M_PI / 2);// Quaternion to multiply by to convert NED to ENU quaternion calculated from RPY via setRPY TF2::Quaternion public class function
 		fromMsg(msg_in->quaternion, q);// Get quaternion from VectorNav API
 
-      		msg.pose.pose.orientation = toMsg(q_ned2enu * q);// Multiply NED quaternion by conversion quaternion to get ENU orientation quaternion and publish orientation
+      	msg.pose.pose.orientation = toMsg(q_ned2enu * q);// Multiply NED quaternion by conversion quaternion to get ENU orientation quaternion and publish orientation
       		
-      		/// TODO(Dereck): Pose Covariance
+      	/// TODO(Dereck): Pose Covariance
 
 		//Twist
-      		msg.twist.twist.linear = ins_velbody_;// Publish liner twist velocity
-      		msg.twist.twist.angular = msg_in->angularrate;// Publish angular twist velocity
-      		/// TODO(Dereck): Velocity Covariance
-      		//msg.pose.covariance[35] = -1.0;//??? why
+      	//msg.twist.twist.linear = ins_velbody_;// Publish liner twist velocity
+        msg.twist.twist.linear.x = ins_velned_.y;
+        msg.twist.twist.linear.y = ins_velned_.x;
+        msg.twist.twist.linear.z = -ins_velned_.z;
+
+      	msg.twist.twist.angular = msg_in->angularrate;// Publish angular twist velocity
+      	/// TODO(Dereck): Velocity Covariance
+      	//msg.pose.covariance[35] = -1.0;//??? why
       		
       		
-      		pub_odom_->publish(msg);// Publish the entire Message to ROS
+      	pub_odom_->publish(msg);// Publish the entire Message to ROS
       }
     }
     // Coordinate Frame Transform from Local odom ENU frame fixed at time 0 to WGS84 ECEF frame.
     {
-	if(datum_set == true){
-	      geometry_msgs::msg::PoseStamped msg;
-	      msg.header = msg_in->header;
-	      msg.header.frame_id = "ENU_to_ECEF";
-	      msg.pose.position.x = init_ecef_datum[0];
-	      msg.pose.position.y = init_ecef_datum[1];
-	      msg.pose.position.z = init_ecef_datum[2];
+	  if(datum_set == true){
+	    geometry_msgs::msg::PoseStamped msg;
+	    msg.header = msg_in->header;
+	    msg.header.frame_id = "ENU_to_ECEF";
+	    msg.pose.position.x = init_ecef_datum[0];
+	    msg.pose.position.y = init_ecef_datum[1];
+	    msg.pose.position.z = init_ecef_datum[2];
 
-	      msg.pose.orientation.x = ECEFtoENURotation[0];
-	      msg.pose.orientation.y = ECEFtoENURotation[1];
-	      msg.pose.orientation.z = ECEFtoENURotation[2];
-	      msg.pose.orientation.w = ECEFtoENURotation[3];
+	    msg.pose.orientation.x = ECEFtoENURotation[0];
+	    msg.pose.orientation.y = ECEFtoENURotation[1];
+	    msg.pose.orientation.z = ECEFtoENURotation[2];
+	    msg.pose.orientation.w = ECEFtoENURotation[3];
 
 
-	      pub_coordframe_->publish(msg);
-	}
+	    pub_coordframe_->publish(msg);
+	  }
     }
   }
 
@@ -486,6 +489,7 @@ private:
   void sub_vn_ins(const vectornav_msgs::msg::InsGroup::SharedPtr msg_in) {
     ins_velbody_ = msg_in->velbody;
     ins_posecef_ = msg_in->posecef;
+    ins_velned_ = msg_in->velned;
   }
 
   /** Convert VN gps2 group data to ROS2 standard message types
@@ -583,6 +587,7 @@ private:
   uint8_t gps_fix_ = vectornav_msgs::msg::GpsGroup::GPSFIX_NOFIX;
   geometry_msgs::msg::Vector3 gps_posu_;
   geometry_msgs::msg::Vector3 ins_velbody_;
+  geometry_msgs::msg::Vector3 ins_velned_;
   geometry_msgs::msg::Point ins_posecef_;
 };
 
