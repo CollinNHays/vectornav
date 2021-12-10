@@ -426,11 +426,25 @@ private:
 
 		//Twist
       	//msg.twist.twist.linear = ins_velbody_;// Publish liner twist velocity
+
+        //Convert VectorNav NED linear velocity from INS to ENU
         msg.twist.twist.linear.x = ins_velned_.y;
         msg.twist.twist.linear.y = ins_velned_.x;
         msg.twist.twist.linear.z = -ins_velned_.z;
 
-      	msg.twist.twist.angular = msg_in->angularrate;// Publish angular twist velocity
+        //Convert VectorNav Body anular velocity to ENU angular Velocity
+      	//msg.twist.twist.angular = msg_in->angularrate;// Publish angular twist velocity
+        Eigen::Matrix3d vndcm;
+        Eigen::Matrix3d bodytoneddcm;
+        Eigen::Vector3d angularratebodyvec;
+        Eigen::Vector3d angularrateNEDvec;
+        vndcm << att_dcm_[0], att_dcm_[1], att_dcm_[2], att_dcm_[3], att_dcm_[4], att_dcm_[5], att_dcm_[6], att_dcm_[7], att_dcm_[8];
+        angularratebodyvec << msg_in->angularrate.x , msg_in->angularrate.y, msg_in->angularrate.z;
+        bodytoneddcm = vndcm.inverse();
+        angularrateNEDvec = bodytoneddcm * angularratebodyvec;
+        msg.twist.twist.angular.x = angularrateNEDvec(1);
+        msg.twist.twist.angular.y = angularrateNEDvec(0);
+        msg.twist.twist.angular.z = -angularrateNEDvec(2);
       	/// TODO(Dereck): Velocity Covariance
       	//msg.pose.covariance[35] = -1.0;//??? why
       		
@@ -481,7 +495,9 @@ private:
   /** Convert VN attitude group data to ROS2 standard message types
    *
    */
-  void sub_vn_attitude(const vectornav_msgs::msg::AttitudeGroup::SharedPtr msg_in) const {}
+  void sub_vn_attitude(const vectornav_msgs::msg::AttitudeGroup::SharedPtr msg_in) {
+    att_dcm_ = msg_in->dcm;
+  }
 
   /** Convert VN ins group data to ROS2 standard message types
    *
@@ -589,6 +605,7 @@ private:
   geometry_msgs::msg::Vector3 ins_velbody_;
   geometry_msgs::msg::Vector3 ins_velned_;
   geometry_msgs::msg::Point ins_posecef_;
+  std::array<float, 9> att_dcm_;
 };
 
 /// TODO(Dereck): convert to ros2 component
