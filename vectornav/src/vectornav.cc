@@ -82,7 +82,7 @@ public:
     declare_parameter<int>("BO1.asyncMode", 0x01);// Serial Port 1
     declare_parameter<int>("BO1.rateDivisor", 8); // 100Hz
     declare_parameter<int>("BO1.commonField", 0x7FFF);
-    declare_parameter<int>("BO1.timeField", vn::protocol::uart::TimeGroup::TIMEGROUP_NONE);
+    declare_parameter<int>("BO1.timeField", 0x03FF);
     declare_parameter<int>("BO1.imuField", vn::protocol::uart::ImuGroup::IMUGROUP_NONE);
     declare_parameter<int>("BO1.gpsField", vn::protocol::uart::GpsGroup::GPSGROUP_FIX | 
                                                vn::protocol::uart::GpsGroup::GPSGROUP_POSU);
@@ -440,7 +440,19 @@ private:
     auto msg = vectornav_msgs::msg::CommonGroup();
 
     // Header
-    msg.header.stamp = node->now();
+    // Use GPS time converted to UNIX time for ros message time stamp
+    if (compositeData.hasTow() && compositeData.hasWeek() && compositeData.week() != 0) {
+      msg.header.stamp.sec = floor(ConvertGPSToUnixTime(node, double(compositeData.tow()), double(compositeData.week())));
+      msg.header.stamp.nanosec = round((ConvertGPSToUnixTime(node, double(compositeData.tow()), double(compositeData.week())) - floor(ConvertGPSToUnixTime(node, double(compositeData.tow()), double(compositeData.week())))) * 1000000000);
+    }
+    else if (compositeData.hasTow() && compositeData.hasWeek() && compositeData.week() == 0) {
+      msg.header.stamp = node->now();
+      RCLCPP_ERROR(node->get_logger(), "USING ROS NODE TIME GPS TIME NOT SET Likely due to lack of GPS signal");
+    }
+    else {
+      msg.header.stamp = node->now();
+      RCLCPP_ERROR(node->get_logger(), "USING ROS NODE TIME GPS TIME MISSING Likely due to VectorNav configuration user error");
+    }
     msg.header.frame_id = node->get_parameter("frame_id").as_string();
 
     // Group Fields
@@ -556,7 +568,7 @@ private:
     }
 
     if (compositeData.hasGpsTow()) {
-      msg.gpstow = compositeData.gpsTow();
+      msg.gpstow = compositeData.tow();
     }
 
     if (compositeData.hasWeek()) {
@@ -958,6 +970,21 @@ private:
   //
   // Helper Functions
   //
+
+  /// Convert from uint64 vn::sensors::CompositeData::compositeData.gpsTow() and u16 vn::sensors::CompositeData::compositeData.week() to double unixTimeStamp
+  static inline double ConvertGPSToUnixTime(void *nodeptr, const double timestamp, const double gpsWeek) {
+    double sec_per_week = 604800.0;
+    double sec_since_GPS_epoch = timestamp + gpsWeek*sec_per_week;
+    double sec_GPStoUTC = 315964800.0;
+    double sec_since_UTC_epoch = sec_since_GPS_epoch + sec_GPStoUTC;
+    if (gpsWeek > 2191) {
+      auto node = reinterpret_cast<Vectornav *>(nodeptr);// Get handle to the vectornav class
+      RCLCPP_ERROR(node->get_logger(), "A new leapsecond may have been added, please check if leap_seconds is set correctly.");
+    }
+    double leap_seconds = 18.0;// The vectornav may be able to report the current leap_seconds
+    double unixTimestamp = sec_since_UTC_epoch - leap_seconds;
+    return unixTimestamp;
+  }
 
   /// Convert from vn::math::vec3f to geometry_msgs::msgs::Vector3
   static inline geometry_msgs::msg::Vector3 toMsg(const vn::math::vec3f &rhs) {
