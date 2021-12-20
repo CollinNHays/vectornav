@@ -283,8 +283,9 @@ private:
       msg.twist.twist.linear = ins_velbody_;
       msg.twist.twist.angular = msg_in->angularrate;
 
-      msg.twist.covariance[0] = -1.0;
-      msg.twist.covariance[7] = -1.0;
+      msg.twist.covariance[0] = 0;
+      msg.twist.covariance[7] = 0;
+      msg.twist.covariance[14] = 0;
 
       /// TODO(Dereck): Velocity Covariance
       if(msg_in->insstatus.mode == 2)
